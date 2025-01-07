@@ -4,6 +4,7 @@ const cors = require("cors")
 const authRoutes = require('./routes/authRoutes')
 const menuRoutes = require('./routes/menuRoutes')
 const restaurantRoutes = require('./routes/restaurantRoutes')
+const orderRoutes = require('./routes/orderRoutes');
 require('dotenv').config();
 
 
@@ -67,6 +68,7 @@ app.get('/',(req,res)=>{
 app.use('/api/auth',authRoutes);
 app.use('/api/restaurants',restaurantRoutes);
 app.use('/api/menu',menuRoutes);
+app.use('/api/orders',orderRoutes);
 
 
 

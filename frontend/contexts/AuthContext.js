@@ -39,7 +39,7 @@ export const AuthProvider = ({ children }) => {
       setUser(storedUser);
       setIsLoggedIn(true);
     } else {
-      logout(); // If token is expired or missing, log out
+      logout(); 
     }
     setLoading(false);
   };
@@ -52,14 +52,15 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-
-      const data = await post("/auth/register", userData);
+  
+      const data = await post("/auth/register", userData); // Assuming this returns the user object with restaurantId
       const newToken = data.token;
-
+      const userWithRestaurantId = data.user; // Ensure this includes restaurantId
+  
       localStorage.setItem("token", newToken);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("user", JSON.stringify(userWithRestaurantId)); // Store full user object with restaurantId
       setToken(newToken);
-      setUser(data.user);
+      setUser(userWithRestaurantId);
       setIsLoggedIn(true);
       router.push("/login");
     } catch (error) {
@@ -74,14 +75,16 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-
-      const data = await post("/auth/login", credentials);
+  
+      const data = await post("/auth/login", credentials); // Assuming this returns the user object with restaurantId
+  
       const newToken = data.token;
-
+      const userWithRestaurantId = data.user; // This should include restaurantId
+  
       localStorage.setItem("token", newToken);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      localStorage.setItem("user", JSON.stringify(userWithRestaurantId)); // Make sure user object includes restaurantId
       setToken(newToken);
-      setUser(data.user);
+      setUser(userWithRestaurantId);
       setIsLoggedIn(true);
       router.push("/");
     } catch (err) {

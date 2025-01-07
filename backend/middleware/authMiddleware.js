@@ -66,6 +66,7 @@ module.exports = (req, res, next) => {
     console.log("Token verified successfully:", {
       userId: decoded.userId,
       role: decoded.role,
+      restaurantId: decoded.restaurantId || "N/A",
       expires: new Date(decoded.exp * 1000).toISOString()
     });
 
@@ -73,7 +74,8 @@ module.exports = (req, res, next) => {
     req.user = {
       userId: decoded.userId,
       role: decoded.role,
-      email: decoded.email // if you have it in the token
+      email: decoded.email, // if you have it in the token
+      restaurantId: decoded.restaurantId // include restaurantId if available
     };
 
     next();

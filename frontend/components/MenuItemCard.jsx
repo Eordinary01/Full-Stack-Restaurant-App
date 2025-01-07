@@ -132,11 +132,11 @@ export default function MenuItemCard({ menuItem, isAdmin, restaurantId }) {
                 className="flex items-center space-x-2 bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-colors"
                 onClick={() => {
                   // Add to cart functionality here
-                  console.log('Add to cart:', menuItem);
+                  // console.log('Add to cart:', menuItem);
                 }}
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>Add to Cart</span>
+                <span></span>
               </button>
             )}
           </div>

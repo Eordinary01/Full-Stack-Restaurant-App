@@ -4,6 +4,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { get, post } from "@/utils/api";
 import {
+  Card,
+  CardHeader,
+  Clock,
+   ShoppingBag, 
+  ForkKnife,
+  Button,
+  Select,
   Store,
   PlusCircle,
   Menu as MenuIcon,
@@ -11,7 +18,6 @@ import {
   Coffee,
   Image as ImageIcon,
   AlertCircle,
-  ChevronRight,
   Utensils,
   DollarSign,
   MapPin,
@@ -19,23 +25,30 @@ import {
   Loader2,
 } from "lucide-react";
 
-const Dashboard = () => {
+import RestaurantMenuModal from "@/components/RestaurantMenuModel";
+import MenuItemForm from "@/components/MenuItemForm";
+import ErrorDisplay from "@/components/ErrorDisplay";
+
+export const Dashboard = () => {
   const { user, token, logout } = useAuth();
   const router = useRouter();
 
-  // State management
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showMenuItemForm, setShowMenuItemForm] = useState(false);
-  const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState(null);
   const [menuItems, setMenuItems] = useState({});
   const [selectedRestaurantDetails, setSelectedRestaurantDetails] =
     useState(null);
   const [error, setError] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Form states
+ 
+  const [activeTab, setActiveTab] = useState("restaurants"); // 'restaurants' or 'orders'
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [orderStats, setOrderStats] = useState({});
+  const [orders, setOrders] = useState([]);
+
   const [restaurantForm, setRestaurantForm] = useState({
     name: "",
     description: "",
@@ -43,12 +56,25 @@ const Dashboard = () => {
     phone: "",
   });
 
+  const MENU_CATEGORIES = [
+    "Appetizer",
+    "Main Course",
+    "Dessert",
+    "Beverage",
+    "Snack",
+  ];
+
   const [menuItemForm, setMenuItemForm] = useState({
     name: "",
     description: "",
     price: "",
-    category: "",
+    category: "Main Course",
     image: null,
+  });
+
+  const [totalStats, setTotalStats] = useState({
+    menuItemsCount: 0,
+    categoriesCount: 0,
   });
 
   useEffect(() => {
@@ -65,6 +91,7 @@ const Dashboard = () => {
         }
 
         await fetchRestaurants();
+        // await fetchOrders();
       } catch (error) {
         console.error("Dashboard initialization error:", error);
         if (error.message?.includes("Token expired")) {
@@ -77,6 +104,75 @@ const Dashboard = () => {
 
     initializeDashboard();
   }, [token, user, router]);
+
+  // const fetchOrders= async (id) => {
+  //   console.log("Fetching order with ID:", id);
+  //   try {
+  //     const response = await get(`/orders/${id}`, {
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //     });
+  
+  //     // Log the response to verify the data
+  //     console.log("Fetched order:", response.order);
+  
+  //     // Check if response contains the order
+  //     if (response.order) {
+  //       // Set the order in state (assuming you want to display a single order)
+  //       setOrders(response.order);
+  
+  //       // Optionally calculate stats for the single order
+  //       const stats = {
+  //         pending: response.order.status === "Pending" ? 1 : 0,
+  //         processing: ["Confirmed", "Preparing", "Ready", "Out for Delivery"].includes(
+  //           response.order.status
+  //         )
+  //           ? 1
+  //           : 0,
+  //         completed: response.order.status === "Delivered" ? 1 : 0,
+  //       };
+  
+  //       // Log the stats for debugging
+  //       console.log("Order stats:", stats);
+  
+  //       // Set the order stats in state
+  //       setOrderStats(stats);
+  //     } else {
+  //       console.error("Error: Order data is not in the expected format");
+  //     }
+  //   } catch (error) {
+  //     console.error("Error fetching order by ID:", error);
+  //     handleError(error);
+  //   }
+  // };
+  
+  
+  // const updateOrderStatus = async (orderId, status) => {
+  //   try {
+  //     // Log the status change to verify
+  //     console.log(`Updating order ${orderId} to status: ${status}`);
+  
+  //     await patch(`/orders/${orderId}/status`, { status });
+  
+  //     // Refresh orders after status update
+  //     await fetchOrders(); // Refresh orders
+  //     setError(null); // Clear any errors
+  //   } catch (error) {
+  //     console.error("Error updating order status:", error);
+  //     handleError(error);
+  //   }
+  // };
+  // const cancelOrder = async (orderId) => {
+  //   try {
+  //     await patch(`/orders/${orderId}/status`, { status: "Cancelled" });
+  //     await fetchOrders(); // Refresh orders
+  //     setError(null);
+  //   } catch (error) {
+  //     console.error("Error cancelling order:", error);
+  //     handleError(error);
+  //   }
+  // };
 
   const fetchRestaurants = async () => {
     try {
@@ -95,8 +191,32 @@ const Dashboard = () => {
         },
       });
 
-      console.log("Restaurant fetch response:", response);
       setRestaurants(response);
+
+      const menuStats = await Promise.all(
+        response.restaurants.map((restaurant) =>
+          get(`/menu/owner-menu/${restaurant._id}`)
+        )
+      );
+
+      // Calculate totals
+      const totalMenuItems = menuStats.reduce(
+        (total, stat) =>
+          total +
+          (stat.menuItems ? Object.values(stat.menuItems).flat().length : 0),
+        0
+      );
+
+      const uniqueCategories = new Set(
+        menuStats.flatMap((stat) =>
+          stat.menuItems ? Object.keys(stat.menuItems) : []
+        )
+      );
+
+      setTotalStats({
+        menuItemsCount: totalMenuItems,
+        categoriesCount: uniqueCategories.size,
+      });
     } catch (error) {
       console.error("Error fetching restaurants:", error);
       handleError(error);
@@ -109,35 +229,17 @@ const Dashboard = () => {
     try {
       setError(null);
       const response = await get(`/menu/owner-menu/${restaurantId}`);
-      console.log("Menu:" + response);
 
-      setMenuItems(response.menuItems);
-      setSelectedRestaurantDetails(response.restaurant);
-      console.log("Menu items:", response);
+      if (response && response.menuItems) {
+        setMenuItems(response.menuItems);
+        setSelectedRestaurantDetails(response.restaurant);
+      } else {
+        throw new Error("Invalid menu data received");
+      }
     } catch (error) {
       console.error("Error fetching menu items:", error);
       handleError(error);
     }
-  };
-
-  const handleError = (error) => {
-    if (error.status === 401) {
-      localStorage.removeItem("token");
-      router.push("/login");
-      return;
-    }
-
-    if (error.status === 403) {
-      setError("Access denied. Please make sure you have owner permissions.");
-      return;
-    }
-
-    if (error.message?.includes("Token expired")) {
-      logout();
-      return;
-    }
-
-    setError(error.message || "An error occurred");
   };
 
   const handleCreateRestaurant = async (e) => {
@@ -184,12 +286,25 @@ const Dashboard = () => {
     }
   };
 
+  const handleViewMenu = async (restaurantId) => {
+    try {
+      setSelectedRestaurantId(restaurantId);
+      await fetchMenuItems(restaurantId);
+    } catch (error) {
+      console.error("Error viewing menu:", error);
+      handleError(error);
+    }
+  };
+
   const handleCreateMenuItem = async (e) => {
     e.preventDefault();
     try {
       setError(null);
 
-      const formData = new FormData();
+      if (!selectedRestaurantId) {
+        setError("No restaurant selected");
+        return;
+      }
 
       if (
         !menuItemForm.name ||
@@ -201,17 +316,19 @@ const Dashboard = () => {
         return;
       }
 
-      Object.keys(menuItemForm).forEach((key) => {
-        if (menuItemForm[key] !== null) {
-          formData.append(key, menuItemForm[key]);
-        }
-      });
+      const formData = new FormData();
+      formData.append("name", menuItemForm.name);
+      formData.append("description", menuItemForm.description);
+      formData.append("price", menuItemForm.price);
+      formData.append("category", menuItemForm.category);
+      formData.append("restaurantId", selectedRestaurantId);
+      if (menuItemForm.image) {
+        formData.append("image", menuItemForm.image);
+      }
 
-      formData.append("restaurantId", selectedRestaurant);
+      formData.append("restaurantId", selectedRestaurantId);
 
       const formDataObject = formDataToObject(formData);
-      console.log("FormData Object:", formDataObject);
-
       const response = await post("/menu/create-menu", formDataObject);
 
       if (response.success) {
@@ -220,10 +337,11 @@ const Dashboard = () => {
           name: "",
           description: "",
           price: "",
-          category: "",
+          category: "Main Course",
           image: null,
         });
-        fetchMenuItems(selectedRestaurant);
+        // Refresh menu items for the current restaurant
+        await fetchMenuItems(selectedRestaurantId);
       } else {
         setError("Failed to create menu item.");
       }
@@ -233,6 +351,32 @@ const Dashboard = () => {
     }
   };
 
+  const handleCloseMenu = () => {
+    setSelectedRestaurantId(null);
+    setSelectedRestaurantDetails(null);
+    setMenuItems({});
+  };
+
+  const handleError = (error) => {
+    if (error.status === 401) {
+      localStorage.removeItem("token");
+      router.push("/login");
+      return;
+    }
+
+    if (error.status === 403) {
+      setError("Access denied. Please make sure you have owner permissions.");
+      return;
+    }
+
+    if (error.message?.includes("Token expired")) {
+      logout();
+      return;
+    }
+
+    setError(error.message || "An error occurred");
+  };
+
   const formDataToObject = (formData) => {
     const obj = {};
     formData.forEach((value, key) => {
@@ -240,6 +384,111 @@ const Dashboard = () => {
     });
     return obj;
   };
+
+  // const renderOrdersSection = () => {
+  //   return (
+  //     <div className="space-y-6">
+  //       {/* Render the stats section */}
+  //       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+  //         <div className="bg-yellow-50 p-6 rounded-lg shadow-md">
+  //           <div className="flex items-center justify-between">
+  //             <div>
+  //               <p className="text-yellow-600 text-sm font-medium">Pending Orders</p>
+  //               <h3 className="text-2xl font-bold text-gray-800 mt-1">{orderStats.pending}</h3>
+  //             </div>
+  //             <div className="bg-yellow-500/10 p-3 rounded-lg">
+  //               <Clock className="w-6 h-6 text-yellow-500" />
+  //             </div>
+  //           </div>
+  //         </div>
+  
+  //         <div className="bg-blue-50 p-6 rounded-lg shadow-md">
+  //           <div className="flex items-center justify-between">
+  //             <div>
+  //               <p className="text-blue-600 text-sm font-medium">Processing Orders</p>
+  //               <h3 className="text-2xl font-bold text-gray-800 mt-1">{orderStats.processing}</h3>
+  //             </div>
+  //             <div className="bg-blue-500/10 p-3 rounded-lg">
+  //               <ShoppingBag className="w-6 h-6 text-blue-500" />
+  //             </div>
+  //           </div>
+  //         </div>
+  
+  //         <div className="bg-green-50 p-6 rounded-lg shadow-md">
+  //           <div className="flex items-center justify-between">
+  //             <div>
+  //               <p className="text-green-600 text-sm font-medium">Completed Orders</p>
+  //               <h3 className="text-2xl font-bold text-gray-800 mt-1">{orderStats.completed}</h3>
+  //             </div>
+  //             <div className="bg-green-500/10 p-3 rounded-lg">
+  //               <ForkKnife className="w-6 h-6 text-green-500" />
+  //             </div>
+  //           </div>
+  //         </div>
+  //       </div>
+  
+  //       {/* Render the orders table */}
+  //       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+  //         <div className="overflow-x-auto">
+  //           <table className="w-full">
+  //             <thead className="bg-gray-50">
+  //               <tr>
+  //                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+  //                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restaurant</th>
+  //                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+  //                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+  //                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+  //               </tr>
+  //             </thead>
+  //             <tbody className="bg-white divide-y divide-gray-200">
+  //               {orders.map((order) => (
+  //                 <tr key={order._id} className="hover:bg-gray-50">
+  //                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{order._id.slice(-6)}</td>
+  //                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{order.restaurant.name}</td>
+  //                   <td className="px-6 py-4 whitespace-nowrap">
+  //                     <span
+  //                       className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+  //                       ${order.status === 'Delivered'
+  //                         ? 'bg-green-100 text-green-800'
+  //                         : order.status === 'Pending'
+  //                         ? 'bg-yellow-100 text-yellow-800'
+  //                         : 'bg-blue-100 text-blue-800'}`}
+  //                     >
+  //                       {order.status}
+  //                     </span>
+  //                   </td>
+  //                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${order.totalAmount}</td>
+  //                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+  //                     <Select
+  //                       value={order.status}
+  //                       onChange={(e) => updateOrderStatus(order._id, e.target.value)}
+  //                       disabled={order.status === 'Cancelled' || order.status === 'Delivered'}
+  //                     >
+  //                       <option value="Pending">Pending</option>
+  //                       <option value="Confirmed">Confirmed</option>
+  //                       <option value="Preparing">Preparing</option>
+  //                       <option value="Ready">Ready</option>
+  //                       <option value="Out for Delivery">Out for Delivery</option>
+  //                       <option value="Delivered">Delivered</option>
+  //                     </Select>
+  //                     {order.status !== 'Cancelled' && order.status !== 'Delivered' && (
+  //                       <Button
+  //                         onClick={() => cancelOrder(order._id)}
+  //                         className="text-red-600 hover:text-red-900 mt-2"
+  //                       >
+  //                         Cancel
+  //                       </Button>
+  //                     )}
+  //                   </td>
+  //                 </tr>
+  //               ))}
+  //             </tbody>
+  //           </table>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // };
 
   if (loading) {
     return (
@@ -261,6 +510,31 @@ const Dashboard = () => {
       {/* Stats Overview */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex space-x-4 mb-8">
+            {/* <button
+              onClick={() => setActiveTab("restaurants")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors
+              ${
+                activeTab === "restaurants"
+                  ? "bg-red-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Restaurants
+            </button> */}
+            {/* <button
+              onClick={() => setActiveTab("orders")}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors
+              ${
+                activeTab === "orders"
+                  ? "bg-red-500 text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              Orders
+            </button> */}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-6">
               <div className="flex items-center justify-between">
@@ -285,7 +559,7 @@ const Dashboard = () => {
                     Total Menu Items
                   </p>
                   <h3 className="text-2xl font-bold text-gray-800 mt-1">
-                    {Object.values(menuItems).flat().length || 0}
+                    {totalStats.menuItemsCount}
                   </h3>
                 </div>
                 <div className="bg-white p-3 rounded-lg">
@@ -301,7 +575,7 @@ const Dashboard = () => {
                     Active Categories
                   </p>
                   <h3 className="text-2xl font-bold text-gray-800 mt-1">
-                    {Object.keys(menuItems).length || 0}
+                    {totalStats.categoriesCount}
                   </h3>
                 </div>
                 <div className="bg-white p-3 rounded-lg">
@@ -317,16 +591,13 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Error Display */}
         {error && (
-          <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 rounded-r-lg flex items-center animate-slideIn">
-            <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-            <span className="text-red-700">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <ErrorDisplay
+            message={error}
+            onClose={() => setError(null)}
+            variant="toast"
+            position="top-right"
+            duration={2000}
+          />
         )}
 
         {/* Dashboard Header */}
@@ -337,20 +608,21 @@ const Dashboard = () => {
             </h1>
             <p className="text-gray-600">Manage your restaurants and menus</p>
           </div>
-          <button
+          {/* <button
             onClick={() => setShowCreateForm(true)}
             className="flex items-center px-6 py-3 bg-gradient-to-r from-red-400 to-red-500 text-white rounded-lg hover:from-red-500 hover:to-red-600 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             <PlusCircle className="w-5 h-5 mr-2" />
             Create Restaurant
-          </button>
+          </button> */}
         </div>
-
         {/* Restaurants Grid */}
+        {activeTab === 'restaurants' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
           {restaurants?.restaurants?.map((restaurant) => (
             <div
               key={restaurant._id}
+              value={restaurant.id}
               className="group relative bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
             >
               {/* Restaurant Header Section */}
@@ -413,15 +685,12 @@ const Dashboard = () => {
                   {/* Action Buttons */}
                   <div className="pt-4 flex space-x-3">
                     <button
-                      onClick={() => {
-                        setSelectedRestaurant(restaurant._id);
-                        fetchMenuItems(restaurant._id);
-                      }}
+                      onClick={() => handleViewMenu(restaurant._id)}
                       className="flex-1 flex items-center justify-center px-4 py-2.5 bg-gradient-to-br from-emerald-500 to-green-500 text-white rounded-lg 
-                hover:from-emerald-600 hover:to-green-600 
-                transition-all duration-300 transform hover:scale-[1.02]
-                shadow-sm hover:shadow-md hover:shadow-green-500/25
-                focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+        hover:from-emerald-600 hover:to-green-600 
+        transition-all duration-300 transform hover:scale-[1.02]
+        shadow-sm hover:shadow-md hover:shadow-green-500/25
+        focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                     >
                       <Utensils className="w-4 h-4 mr-2" />
                       <span className="font-medium">View Menu</span>
@@ -429,267 +698,121 @@ const Dashboard = () => {
 
                     <button
                       onClick={() => {
-                        setSelectedRestaurant(restaurant._id);
+                        setSelectedRestaurantId(restaurant._id);
                         setShowMenuItemForm(true);
                       }}
                       className="flex-1 flex items-center justify-center px-4 py-2.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg 
-                hover:from-blue-600 hover:to-blue-700
-                transition-all duration-300 transform hover:scale-[1.02]
-                shadow-sm hover:shadow-md hover:shadow-blue-500/25
-                focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        hover:from-blue-600 hover:to-blue-700
+        transition-all duration-300 transform hover:scale-[1.02]
+        shadow-sm hover:shadow-md hover:shadow-blue-500/25
+        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                     >
                       <PlusCircle className="w-4 h-4 mr-2" />
                       <span className="font-medium">Add Item</span>
                     </button>
                   </div>
                 </div>
-
-                {/* Decorative Elements */}
-                <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tl from-gray-100 to-transparent opacity-50 pointer-events-none" />
-                <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-gradient-to-tl from-red-500/5 to-transparent pointer-events-none" />
               </div>
             </div>
           ))}
-        </div>
 
-        {/* Menu Items Display */}
-        {selectedRestaurant && selectedRestaurantDetails && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            {/* Modal Container */}
-            <div className="bg-white w-full max-w-5xl mx-auto rounded-lg shadow-lg overflow-hidden relative">
-              {/* Close Button */}
-              <button
-                onClick={() => setSelectedRestaurant(null)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-6 h-6"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 18L18 6M6 6l12 12"
+          {/* Menu Items Display */}
+          {selectedRestaurantId && selectedRestaurantDetails && (
+            <RestaurantMenuModal
+              selectedRestaurant={selectedRestaurantId}
+              selectedRestaurantDetails={selectedRestaurantDetails}
+              menuItems={menuItems}
+              onClose={handleCloseMenu}
+            />
+          )}
+
+          {/* Create Restaurant Modal */}
+          {showCreateForm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-8 rounded-lg w-full max-w-md">
+                <h2 className="text-2xl font-bold mb-4">Create Restaurant</h2>
+                <form onSubmit={handleCreateRestaurant} className="space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Restaurant Name"
+                    className="w-full p-2 border rounded"
+                    value={restaurantForm.name}
+                    onChange={(e) =>
+                      setRestaurantForm({
+                        ...restaurantForm,
+                        name: e.target.value,
+                      })
+                    }
                   />
-                </svg>
-              </button>
-
-              {/* Header Section */}
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-3xl font-bold text-gray-800">
-                  Menu - {selectedRestaurantDetails.name}
-                </h2>
-                <p className="text-sm text-gray-500 mt-2">
-                  Explore the delicious menu offerings from{" "}
-                  {selectedRestaurantDetails.name}.
-                </p>
-              </div>
-
-              {/* Menu Categories and Items */}
-              <div className="p-6 overflow-y-auto max-h-[80vh]">
-                {Object.entries(menuItems).map(([category, items]) => (
-                  <div key={category} className="mb-8">
-                    {/* Category Header */}
-                    <h3 className="text-2xl font-semibold mb-4 text-gray-700 border-b-2 border-gray-200 pb-2">
-                      {category}
-                    </h3>
-
-                    {/* Menu Items Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {items.map((item) => (
-                        <div
-                          key={item._id}
-                          className="bg-white rounded-lg shadow-md hover:shadow-lg transform transition-all duration-300 hover:scale-105"
-                        >
-                          {/* Item Image */}
-                          {item.image && (
-                            <div className="relative">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-full h-48 object-cover rounded-t-lg"
-                              />
-                              <span className="absolute top-2 left-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                Featured
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Item Details */}
-                          <div className="p-4">
-                            <h4 className="text-lg font-bold text-gray-800 mb-2">
-                              {item.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                              {item.description}
-                            </p>
-                            <p className="text-lg font-semibold text-purple-600">
-                              ${item.price.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <textarea
+                    placeholder="Description"
+                    className="w-full p-2 border rounded"
+                    value={restaurantForm.description}
+                    onChange={(e) =>
+                      setRestaurantForm({
+                        ...restaurantForm,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="Address"
+                    className="w-full p-2 border rounded"
+                    value={restaurantForm.address}
+                    onChange={(e) =>
+                      setRestaurantForm({
+                        ...restaurantForm,
+                        address: e.target.value,
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone"
+                    className="w-full p-2 border rounded"
+                    value={restaurantForm.phone}
+                    onChange={(e) =>
+                      setRestaurantForm({
+                        ...restaurantForm,
+                        phone: e.target.value,
+                      })
+                    }
+                  />
+                  <div className="flex justify-end space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateForm(false)}
+                      className="px-4 py-2 border rounded hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                      Create
+                    </button>
                   </div>
-                ))}
+                </form>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Create Restaurant Modal */}
-        {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-8 rounded-lg w-full max-w-md">
-              <h2 className="text-2xl font-bold mb-4">Create Restaurant</h2>
-              <form onSubmit={handleCreateRestaurant} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Restaurant Name"
-                  className="w-full p-2 border rounded"
-                  value={restaurantForm.name}
-                  onChange={(e) =>
-                    setRestaurantForm({
-                      ...restaurantForm,
-                      name: e.target.value,
-                    })
-                  }
-                />
-                <textarea
-                  placeholder="Description"
-                  className="w-full p-2 border rounded"
-                  value={restaurantForm.description}
-                  onChange={(e) =>
-                    setRestaurantForm({
-                      ...restaurantForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="Address"
-                  className="w-full p-2 border rounded"
-                  value={restaurantForm.address}
-                  onChange={(e) =>
-                    setRestaurantForm({
-                      ...restaurantForm,
-                      address: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="Phone"
-                  className="w-full p-2 border rounded"
-                  value={restaurantForm.phone}
-                  onChange={(e) =>
-                    setRestaurantForm({
-                      ...restaurantForm,
-                      phone: e.target.value,
-                    })
-                  }
-                />
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateForm(false)}
-                    className="px-4 py-2 border rounded hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Create
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Create Menu Item Modal */}
-        {showMenuItemForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-8 rounded-lg w-full max-w-md">
-              <h2 className="text-2xl font-bold mb-4">Create Menu Item</h2>
-              <form onSubmit={handleCreateMenuItem} className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Menu Item Name"
-                  className="w-full p-2 border rounded"
-                  value={menuItemForm.name}
-                  onChange={(e) =>
-                    setMenuItemForm({ ...menuItemForm, name: e.target.value })
-                  }
-                />
-                <textarea
-                  placeholder="Description"
-                  className="w-full p-2 border rounded"
-                  value={menuItemForm.description}
-                  onChange={(e) =>
-                    setMenuItemForm({
-                      ...menuItemForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="number"
-                  placeholder="Price"
-                  className="w-full p-2 border rounded"
-                  value={menuItemForm.price}
-                  onChange={(e) =>
-                    setMenuItemForm({ ...menuItemForm, price: e.target.value })
-                  }
-                />
-                <input
-                  type="text"
-                  placeholder="Category"
-                  className="w-full p-2 border rounded"
-                  value={menuItemForm.category}
-                  onChange={(e) =>
-                    setMenuItemForm({
-                      ...menuItemForm,
-                      category: e.target.value,
-                    })
-                  }
-                />
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="w-full p-2 border rounded"
-                  onChange={(e) =>
-                    setMenuItemForm({
-                      ...menuItemForm,
-                      image: e.target.files[0],
-                    })
-                  }
-                />
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowMenuItemForm(false)}
-                    className="px-4 py-2 border rounded hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                  >
-                    Create
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          {/* Create Menu Item Modal */}
+          {showMenuItemForm && (
+            <MenuItemForm
+              showMenuItemForm={showMenuItemForm}
+              setShowMenuItemForm={setShowMenuItemForm}
+              menuItemForm={menuItemForm}
+              setMenuItemForm={setMenuItemForm}
+              handleCreateMenuItem={handleCreateMenuItem}
+              MENU_CATEGORIES={MENU_CATEGORIES}
+            />
+          )}
+        </div>
+        ):(
+          renderOrdersSection()
         )}
       </div>
     </div>

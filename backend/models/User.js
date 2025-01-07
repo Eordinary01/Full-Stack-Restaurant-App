@@ -19,6 +19,12 @@ const userSchema = new mongoose.Schema({
     enum: ["customer", "owner", "admin"],
     default: "customer",
   },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant',
+  },
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('User', userSchema);

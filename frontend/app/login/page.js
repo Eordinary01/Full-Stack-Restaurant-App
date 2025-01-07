@@ -1,4 +1,5 @@
-"use client";
+"use client"
+
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,9 +8,10 @@ export default function Login() {
   const { login, error, loading, clearError } = useAuth();
 
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
+    password: ""
   });
+  
   const [formError, setFormError] = useState("");
 
   const handleChange = (e) => {
@@ -49,13 +51,10 @@ export default function Login() {
             {error || formError}
           </div>
         )}
+
         <form className="space-y-6" onSubmit={handleSubmit}>
-          {/* Email Field */}
           <div>
-            <label
-              htmlFor="email"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="email" className="block text-gray-700 font-semibold mb-2">
               Email
             </label>
             <input
@@ -68,12 +67,8 @@ export default function Login() {
             />
           </div>
 
-          {/* Password Field */}
           <div>
-            <label
-              htmlFor="password"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="password" className="block text-gray-700 font-semibold mb-2">
               Password
             </label>
             <input
@@ -86,27 +81,22 @@ export default function Login() {
             />
           </div>
 
-          {/* Register Button */}
           <div>
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-green-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+              className={`w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
                 loading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {loading ? "Logging.." : "Login"}
+              {loading ? "Logging in..." : "Login"}
             </button>
           </div>
         </form>
 
-        {/* Login Link */}
         <p className="mt-6 text-center text-gray-600">
           Don't have an account?{" "}
-          <Link
-            href="/register"
-            className="text-green-600 hover:text-red-800 font-semibold"
-          >
+          <Link href="/register" className="text-green-600 hover:text-green-800 font-semibold">
             Register
           </Link>
         </p>

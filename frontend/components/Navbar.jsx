@@ -20,6 +20,8 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
+  const latestOrderId = user?.orders?.[0]?._id || null;
+
   return (
     <nav className="bg-gradient-to-r from-red-500 to-red-600 py-4 shadow-xl relative z-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -53,6 +55,10 @@ export default function Navbar() {
                 >
                   <FiUser className="w-5 h-5" />
                   <span>Dashboard</span>
+                </Link>
+                <Link href="/orders" className="text-white hover:text-red-200 transition-colors duration-200 flex items-center space-x-1">
+                  <FiUser className="w-5 h-5" />
+                  <span>Orders</span>
                 </Link>
                 
                 <div className="relative">

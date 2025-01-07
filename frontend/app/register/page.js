@@ -11,6 +11,10 @@ export default function Register() {
     email: "",
     password: "",
     role: "customer",
+    restaurantName: "",
+    restaurantAddress: "",
+    restaurantDescription: "",
+    restaurantPhone: ""
   });
 
   const [formError, setFormError] = useState("");
@@ -38,12 +42,23 @@ export default function Register() {
       return;
     }
 
+    if (formData.role === "owner" && (
+      !formData.restaurantName ||
+      !formData.restaurantAddress ||
+      !formData.restaurantDescription ||
+      !formData.restaurantPhone
+    )) {
+      setFormError("Restaurant details are required for restaurant owners");
+      return;
+    }
+
     try {
       await register(formData);
     } catch (err) {
       setFormError(err.message);
     }
   };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
@@ -59,10 +74,7 @@ export default function Register() {
 
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
-            <label
-              htmlFor="name"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="name" className="block text-gray-700 font-semibold mb-2">
               Name
             </label>
             <input
@@ -76,10 +88,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label
-              htmlFor="email"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="email" className="block text-gray-700 font-semibold mb-2">
               Email
             </label>
             <input
@@ -93,10 +102,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="password" className="block text-gray-700 font-semibold mb-2">
               Password
             </label>
             <input
@@ -110,10 +116,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label
-              htmlFor="role"
-              className="block text-gray-700 font-semibold mb-2"
-            >
+            <label htmlFor="role" className="block text-gray-700 font-semibold mb-2">
               Role
             </label>
             <select
@@ -123,15 +126,75 @@ export default function Register() {
               className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-800 focus:ring focus:ring-red-200 focus:border-red-500"
             >
               <option value="customer">Customer</option>
-              <option value="owner">Owner</option>
+              <option value="owner">Restaurant Owner</option>
             </select>
           </div>
+
+          {formData.role === "owner" && (
+            <>
+              <div>
+                <label htmlFor="restaurantName" className="block text-gray-700 font-semibold mb-2">
+                  Restaurant Name
+                </label>
+                <input
+                  type="text"
+                  id="restaurantName"
+                  value={formData.restaurantName}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-800 focus:ring focus:ring-red-200 focus:border-red-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="restaurantAddress" className="block text-gray-700 font-semibold mb-2">
+                  Restaurant Address
+                </label>
+                <input
+                  type="text"
+                  id="restaurantAddress"
+                  value={formData.restaurantAddress}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-800 focus:ring focus:ring-red-200 focus:border-red-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="restaurantDescription" className="block text-gray-700 font-semibold mb-2">
+                  Restaurant Description
+                </label>
+                <input
+                  type="text"
+                  id="restaurantDescription"
+                  value={formData.restaurantDescription}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-800 focus:ring focus:ring-red-200 focus:border-red-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="restaurantPhone" className="block text-gray-700 font-semibold mb-2">
+                  Restaurant Phone Number
+                </label>
+                <input
+                  type="text"
+                  id="restaurantPhone"
+                  value={formData.restaurantPhone}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-gray-800 focus:ring focus:ring-red-200 focus:border-red-500"
+                  required
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-green-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+              className={`w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
                 loading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
@@ -142,10 +205,7 @@ export default function Register() {
 
         <p className="mt-6 text-center text-gray-600">
           Already have an account?{" "}
-          <Link
-            href="/login"
-            className="text-green-600 hover:text-red-800 font-semibold"
-          >
+          <Link href="/login" className="text-green-600 hover:text-green-800 font-semibold">
             Login
           </Link>
         </p>

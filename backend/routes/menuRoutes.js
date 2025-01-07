@@ -1,97 +1,196 @@
+const mongoose = require("mongoose");
 const express = require("express");
 const MenuItem = require("../models/MenuItem");
 const Auth = require("../middleware/authMiddleware");
 const multer = require("multer");
 const path = require("path");
 const Restaurant = require("../models/Restaurant");
+const fs = require('fs');
 
 const router = express.Router();
 
+// Ensure uploads directory exists
+const uploadDir = './uploads';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "./uploads");
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+        const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+    const fileName = `${Date.now()}-${sanitizedName}`;
+    cb(null, fileName);
   },
 });
+
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 1024 * 1024 * 5 },
+  limits: { 
+    fileSize: 1024 * 1024 * 5, 
+    files: 1 
+  },
   fileFilter: (req, file, cb) => {
-    const fileTypes = /jpeg|jpg|png|gif/;
-    const extName = fileTypes.test(
+    
+    const allowedTypes = /jpeg|jpg|png|gif/;
+    const extname = allowedTypes.test(
       path.extname(file.originalname).toLowerCase()
     );
-    const mimeType = fileTypes.test(file.mimetype);
-    if (extName && mimeType) {
-      return cb(null, true);
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (extname && mimetype) {
+      cb(null, true);
     } else {
-      cb(new Error("Images only!"));
+      cb(new Error('Only image files (jpg, jpeg, png, gif) are allowed'));
     }
   },
-});
+}).single('image'); // Ensure this matches your form field name
 
-router.post("/create-menu", Auth, upload.single("image"), async (req, res) => {
+
+const handleUpload = (req, res, next) => {
+  upload(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      // Multer-specific errors
+      return res.status(400).json({ 
+        message: `File upload error: ${err.message}`,
+        code: 'UPLOAD_ERROR'
+      });
+    } else if (err) {
+      // Other errors
+      return res.status(400).json({ 
+        message: err.message || 'File upload failed',
+        code: 'UPLOAD_ERROR'
+      });
+    }
+   
+    next();
+  });
+};
+
+router.post("/create-menu", Auth, handleUpload, async (req, res) => {
   try {
-    const { name, description, price, restaurantId } = req.body;
-    console.log("req.file", req.file); // Check if the file is received
+    console.log("Request body:", req.body);
+    console.log("File:", req.file);
 
-    // Ensure the image file was uploaded
-    // if (!req.file) {
-    //   return res.status(400).json({ message: "Image is required" });
-    // }
+    const { name, description, price, restaurantId, category } = req.body;
 
-    // Path of the uploaded image
-    const imagePath = req.file ? req.file.path : null;
-
-    // Ensure required fields are provided
-    if (!name || !description || !price || !restaurantId) {
-      return res.status(400).json({ message: "All fields are required" });
+    // Validate required fields
+    if (!name || !description || !price || !restaurantId || !category) {
+      // If file was uploaded but validation failed, delete it
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        message: "Missing required fields",
+        details: {
+          name: !name ? "Name is required" : null,
+          description: !description ? "Description is required" : null,
+          price: !price ? "Price is required" : null,
+          restaurantId: !restaurantId ? "Restaurant ID is required" : null,
+          category: !category ? "Category is required" : null
+        }
+      });
     }
 
-    // Create the menu item object
-    const menuItem = new MenuItem({
-      name,
-      description,
-      price,
-      image: imagePath,
-      restaurant: restaurantId,
+    // Validate restaurantId
+    if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ message: "Invalid restaurant ID" });
+    }
+
+    // Validate price
+    const numericPrice = parseFloat(price);
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ message: "Price must be a positive number" });
+    }
+
+    // Validate category
+    const ALLOWED_CATEGORIES = ["Appetizer", "Main Course", "Dessert", "Beverage", "Snack"];
+    if (!ALLOWED_CATEGORIES.includes(category)) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({
+        message: `Invalid category. Must be one of: ${ALLOWED_CATEGORIES.join(", ")}`
+      });
+    }
+
+    // Check if restaurant exists and user has permission
+    const restaurant = await Restaurant.findOne({
+      _id: restaurantId,
+      owner: req.user.userId
     });
 
-    
+    if (!restaurant) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(403).json({ 
+        message: "Not authorized to add menu items to this restaurant" 
+      });
+    }
+
+    // Create menu item
+    const menuItem = new MenuItem({
+      name: name.trim(),
+      description: description.trim(),
+      category,
+      price: numericPrice.toFixed(2),
+      image: req.file ? req.file.path : null,
+      restaurant: restaurantId
+    });
+
     await menuItem.save();
 
-    
-    res.status(201).json({ success: true, data: menuItem });
+    res.status(201).json({ 
+      success: true, 
+      data: menuItem,
+      message: "Menu item created successfully"
+    });
+
   } catch (error) {
+    // Clean up uploaded file if there's an error
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     console.error("Error Creating Menu Item:", error);
-    res.status(500).json({ message: "Error creating menu item" });
+    res.status(500).json({ 
+      message: "Error creating menu item", 
+      error: error.message 
+    });
   }
 });
 
 
 router.get("/owner-menu/:restaurantId", Auth, async (req, res) => {
   try {
-    
     const restaurant = await Restaurant.findOne({
       _id: req.params.restaurantId,
-      owner: req.user.userId
+      owner: req.user.userId,
     });
 
     if (!restaurant) {
-      return res.status(403).json({ message: "Not authorized to view this restaurant's menu" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to view this restaurant's menu" });
     }
 
-    
     const menuItems = await MenuItem.find({
-      restaurant: req.params.restaurantId
+      restaurant: req.params.restaurantId,
     }).sort({ createdAt: -1 });
 
-    
     const groupedMenuItems = menuItems.reduce((acc, item) => {
-      const category = item.category || 'Uncategorized';
+      const category = item.category || "Uncategorized";
       if (!acc[category]) {
         acc[category] = [];
       }
@@ -103,16 +202,15 @@ router.get("/owner-menu/:restaurantId", Auth, async (req, res) => {
       success: true,
       restaurant: {
         id: restaurant._id,
-        name: restaurant.name
+        name: restaurant.name,
       },
-      menuItems: groupedMenuItems
+      menuItems: groupedMenuItems,
     });
   } catch (error) {
     console.error("Error fetching owner's menu:", error);
     res.status(500).json({ message: "Error fetching menu items" });
   }
 });
-
 
 router.get("/restaurant/:restaurantId", async (req, res) => {
   try {

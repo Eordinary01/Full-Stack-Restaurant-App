@@ -1,35 +1,31 @@
 const API_BASE_URL = "http://127.0.0.1:8890/api";
 
+// Fetcher function for common API requests
 const fetcher = async (url, options = {}) => {
   try {
-    const token = 
-      typeof window !== 'undefined' ? localStorage.getItem("token") : null;
-
+    const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
     const headers = {
       "Content-Type": "application/json",
       ...options.headers,
     };
-    
+
     if (token) {
-      headers.Authorization = `Bearer ${token}`; 
+      headers.Authorization = `Bearer ${token}`;
     }
 
-    console.log( {
-      url: API_BASE_URL + url,
-      headers,
-      ...options
-    });
+    // Log only for debugging in development (ensure to mute/remove for production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log({
+        url: API_BASE_URL + url,
+        headers,
+        ...options
+      });
+    }
 
-    const response = await fetch(API_BASE_URL + url, {
-      ...options,
-      headers,
-    });
+    const response = await fetch(API_BASE_URL + url, { ...options, headers });
 
-   
     const data = await response.json();
-    // console.log('API Response:', data);
 
-    
     if (!response.ok) {
       if (response.status === 401 && data.message?.includes("Token expired")) {
         if (typeof window !== 'undefined') {
@@ -41,13 +37,28 @@ const fetcher = async (url, options = {}) => {
     }
 
     return data;
-    
+
   } catch (error) {
     console.error('API Error:', error);
     throw error;
   }
 };
 
+// POST request
+export const post = async (url, data, options = {}) => {
+  try {
+    return await fetcher(url, { 
+      ...options, 
+      method: "POST", 
+      body: data ? JSON.stringify(data) : undefined // Avoid sending body if data is undefined or null
+    });
+  } catch (error) {
+    console.error('POST Request Error:', error);
+    throw error;
+  }
+};
+
+// GET request
 export const get = async (url, options = {}) => {
   try {
     return await fetcher(url, { ...options, method: "GET" });
@@ -57,25 +68,13 @@ export const get = async (url, options = {}) => {
   }
 };
 
-export const post = async (url, data, options = {}) => {
-  try {
-    return await fetcher(url, { 
-      ...options, 
-      method: "POST", 
-      body: JSON.stringify(data) 
-    });
-  } catch (error) {
-    console.error('POST Request Error:', error);
-    throw error;
-  }
-};
-
+// PUT request
 export const put = async (url, data, options = {}) => {
   try {
     return await fetcher(url, { 
       ...options, 
       method: "PUT", 
-      body: JSON.stringify(data) 
+      body: data ? JSON.stringify(data) : undefined // Avoid sending body if data is undefined or null
     });
   } catch (error) {
     console.error('PUT Request Error:', error);
@@ -83,6 +82,21 @@ export const put = async (url, data, options = {}) => {
   }
 };
 
+// PATCH request
+export const patch = async (url, data, options = {}) => {
+  try {
+    return await fetcher(url, {
+      ...options,
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined // Avoid sending body if data is undefined or null
+    });
+  } catch (error) {
+    console.error('PATCH Request Error:', error);
+    throw error;
+  }
+};
+
+// DELETE request
 export const del = async (url, options = {}) => {
   try {
     return await fetcher(url, { ...options, method: "DELETE" });
