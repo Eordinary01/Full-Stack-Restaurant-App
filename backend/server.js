@@ -36,6 +36,8 @@ app.use((req, res, next) => {
   
   // Apply CORS middleware
   app.use(cors(corsOptions));
+
+  app.use('/uploads', express.static('uploads'));
   
   // Enable pre-flight requests for all routes
   app.options('*', cors(corsOptions));

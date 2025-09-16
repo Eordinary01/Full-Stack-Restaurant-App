@@ -1,11 +1,52 @@
 'use client'
 import { useEffect, useState } from "react";
-import { Search, Loader2, ChefHat, Store, TrendingUp } from "lucide-react";
+import { 
+  Search, 
+  Loader2, 
+  Store, 
+  TrendingUp, 
+  Utensils, 
+  X,
+  ChevronDown,
+  AlertCircle,
+  Filter,
+  SlidersHorizontal,
+  MapPin,
+  Star
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { get } from "@/utils/api";
 import RestaurantCard from "@/components/RestaurantCard";
 
-export default function Home(restaurantId) {
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export default function Home() {
   const [restaurants, setRestaurants] = useState([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -13,6 +54,19 @@ export default function Home(restaurantId) {
   const [fetchingRestaurants, setFetchingRestaurants] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [sortOption, setSortOption] = useState("popular");
+  const [filterCuisine, setFilterCuisine] = useState("all");
+  
+  const cuisineTypes = ["All", "Italian", "Mexican", "Japanese", "Indian", "American", "Chinese"];
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const fetchRestaurants = async () => {
@@ -22,7 +76,6 @@ export default function Home(restaurantId) {
         setRestaurants(data);
         setFilteredRestaurants(data);
       } catch (error) {
-        console.error("Error fetching restaurants:", error);
         setFetchError(error.message || "Error Fetching Restaurants.");
       } finally {
         setFetchingRestaurants(false);
@@ -35,31 +88,61 @@ export default function Home(restaurantId) {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    return () => {
-      if (error) {
-        clearError();
-      }
-    };
-  }, [error, clearError]);
+    handleFilterAndSort();
+  }, [searchQuery, sortOption, filterCuisine]);
+
+  const handleFilterAndSort = () => {
+    let results = [...restaurants];
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      results = results.filter(
+        (restaurant) =>
+          restaurant.name.toLowerCase().includes(query) ||
+          restaurant.description.toLowerCase().includes(query)
+      );
+    }
+    
+    if (filterCuisine && filterCuisine !== 'all') {
+      results = results.filter(
+        (restaurant) => restaurant.cuisine === filterCuisine
+      );
+    }
+    
+    if (sortOption === 'popular') {
+      results.sort((a, b) => b.rating - a.rating);
+    } else if (sortOption === 'newest') {
+      results.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    
+    setFilteredRestaurants(results);
+  };
 
   const handleSearch = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
+    setSearchQuery(e.target.value);
+  };
 
-    const filtered = restaurants.filter(
-      (restaurant) =>
-        restaurant.name.toLowerCase().includes(query) ||
-        restaurant.description.toLowerCase().includes(query)
-    );
-    setFilteredRestaurants(filtered);
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   if (loading || fetchingRestaurants) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-white to-gray-50">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="w-12 h-12 text-red-600 animate-spin" />
-          <p className="text-lg font-medium text-gray-600">Loading amazing dishes...</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="flex flex-col items-center space-y-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-full blur-2xl opacity-20 animate-pulse" />
+              <div className="relative p-6 bg-white rounded-2xl shadow-xl">
+                <Utensils className="w-12 h-12 text-red-600 mb-2" />
+                <Loader2 className="w-8 h-8 text-red-600 animate-spin absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-bold text-gray-900">Discovering Amazing Restaurants</h2>
+              <p className="text-gray-600 max-w-md">We're curating the perfect dining experiences just for you...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -67,119 +150,250 @@ export default function Home(restaurantId) {
 
   if (error || fetchError) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="max-w-md w-full mx-4 p-6 bg-white rounded-xl shadow-lg border-l-4 border-red-500">
-          <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
-              <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <Alert variant="destructive" className="border-0 bg-white shadow-xl">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-3 bg-red-100 rounded-full">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <AlertTitle className="text-lg font-semibold">Something went wrong</AlertTitle>
+                </div>
+              </div>
+              <AlertDescription className="text-gray-600 mb-6">
+                {error || fetchError}
+              </AlertDescription>
+              {error && (
+                <Button 
+                  onClick={clearError} 
+                  className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700"
+                >
+                  Try Again
+                </Button>
+              )}
             </div>
-            <div>
-              <h3 className="text-lg font-medium text-gray-900">Error Occurred</h3>
-              <p className="mt-1 text-sm text-gray-500">{error || fetchError}</p>
-            </div>
-          </div>
-          {error && (
-            <button
-              onClick={clearError}
-              className="mt-4 w-full inline-flex justify-center items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
-            >
-              Dismiss Error
-            </button>
-          )}
+          </Alert>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-     
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero Section */}
-        <div className="relative mb-12">
-          <div className="text-center space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-600 to-orange-500">
-                Discover
-              </span>
-              <span className="text-gray-900"> Delicious Dishes</span>
-            </h1>
-            <p className="max-w-2xl mx-auto text-lg sm:text-xl text-gray-600 leading-relaxed">
-              Explore our exquisite menu to satisfy your cravings, featuring the finest selection of cuisines.
-            </p>
-          </div>
-        </div>
-
-        {/* Search Section */}
-        <div className="relative max-w-2xl mx-auto mb-16">
-          <div className={`relative transform transition-all duration-200 ${searchFocused ? 'scale-105' : ''}`}>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-orange-500 rounded-2xl blur-lg opacity-20" />
-            <div className="relative">
-              <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 transition-colors duration-200 ${searchFocused ? 'text-red-500' : 'text-gray-400'}`} />
-              <input
-                type="text"
-                placeholder="Search restaurants by name or cuisine..."
-                value={searchQuery}
-                onChange={handleSearch}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl shadow-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all duration-200"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
+      {/* Hero Section with Search */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 via-orange-500/10 to-yellow-500/10" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-red-500 to-orange-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse delay-1000" />
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-32">
+          <div className="text-center space-y-8 mb-16">
+            <div className="space-y-4">
+              <Badge className="bg-white/80 backdrop-blur-sm text-red-600 border-red-200 shadow-sm px-4 py-2">
+                <MapPin className="w-4 h-4 mr-2" />
+                Discover Local Gems
+              </Badge>
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight">
+                <span className="block text-gray-900 mb-2">Find Your</span>
+                <span className="block text-transparent bg-clip-text bg-gradient-to-r from-red-600 via-orange-500 to-yellow-500">
+                  Perfect Meal
+                </span>
+              </h1>
+              <p className="max-w-3xl mx-auto text-xl text-gray-600 leading-relaxed font-medium">
+                Discover extraordinary dining experiences, from hidden neighborhood treasures to celebrated culinary destinations
+              </p>
             </div>
           </div>
 
-          {/* Quick Stats */}
-          <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2">
-            <div className="flex items-center space-x-6 text-sm text-gray-600">
-              <div className="flex items-center space-x-1">
-                <Store className="w-4 h-4 text-red-500" />
-                <span>{restaurants.length} Available</span>
+          {/* Enhanced Search */}
+          <div className="max-w-3xl mx-auto mb-16">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-orange-500 rounded-3xl blur-xl opacity-25 group-hover:opacity-40 transition-opacity duration-300" />
+              <div className="relative bg-white rounded-3xl shadow-2xl p-2">
+                <div className="flex items-center">
+                  <div className="flex-1 relative">
+                    <Search className={`absolute left-6 top-1/2 transform -translate-y-1/2 w-6 h-6 transition-colors duration-200 ${
+                      searchFocused ? 'text-red-500' : 'text-gray-400'
+                    }`} />
+                    <Input
+                      type="text"
+                      placeholder="Search for restaurants, cuisines, or dishes..."
+                      value={searchQuery}
+                      onChange={handleSearch}
+                      onFocus={() => setSearchFocused(true)}
+                      onBlur={() => setSearchFocused(false)}
+                      className="w-full pl-16 pr-6 py-6 text-lg bg-transparent border-0 focus:ring-0 rounded-2xl placeholder-gray-500"
+                    />
+                  </div>
+                  {searchQuery ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearSearch}
+                      className="mr-2 rounded-full h-10 w-10 p-0"
+                    >
+                      <X className="w-5 h-5" />
+                    </Button>
+                  ) : (
+                    <Button className="mr-2 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 rounded-2xl px-8 py-6 text-white font-semibold shadow-lg">
+                      Search
+                    </Button>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center space-x-1">
-                <TrendingUp className="w-4 h-4 text-orange-500" />
-                <span>Top Rated</span>
+            </div>
+
+            {/* Search Stats */}
+            <div className="flex justify-center mt-8">
+              <div className="flex items-center space-x-8 bg-white/70 backdrop-blur-sm rounded-2xl px-6 py-4 shadow-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-red-100 rounded-xl">
+                    <Store className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">{restaurants.length}</div>
+                    <div className="text-sm text-gray-600">Restaurants</div>
+                  </div>
+                </div>
+                <div className="w-px h-12 bg-gray-200" />
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-yellow-100 rounded-xl">
+                    <Star className="w-5 h-5 text-yellow-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">4.8</div>
+                    <div className="text-sm text-gray-600">Avg Rating</div>
+                  </div>
+                </div>
+                <div className="w-px h-12 bg-gray-200" />
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-xl">
+                    <TrendingUp className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-gray-900">24/7</div>
+                    <div className="text-sm text-gray-600">Available</div>
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Filter Bar */}
+        <div className="bg-white rounded-2xl shadow-lg p-6 mb-12">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <h2 className="text-2xl font-bold text-gray-900">Discover Restaurants</h2>
+              <Badge variant="secondary" className="bg-red-50 text-red-700 border-red-200 px-3 py-1">
+                {filteredRestaurants.length} found
+              </Badge>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <Select value={filterCuisine} onValueChange={setFilterCuisine}>
+                <SelectTrigger className="w-40 border-gray-200 rounded-xl">
+                  <SlidersHorizontal className="w-4 h-4 mr-2" />
+                  <SelectValue placeholder="All Cuisines" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cuisines</SelectItem>
+                  {cuisineTypes.slice(1).map((cuisine) => (
+                    <SelectItem key={cuisine} value={cuisine.toLowerCase()}>
+                      {cuisine}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortOption} onValueChange={setSortOption}>
+                <SelectTrigger className="w-40 border-gray-200 rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="popular">Most Popular</SelectItem>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="rating">Highest Rated</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
 
         {/* Restaurant Grid */}
-        <div className="mt-20">
-          {filteredRestaurants.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredRestaurants.map((restaurant) => (
-                <div 
-                  key={restaurant._id} 
-                  className="group transform hover:-translate-y-1 hover:shadow-xl transition-all duration-200"
-                >
-                  <RestaurantCard restaurant={restaurant} key={restaurant._id} />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16 px-4">
-              <div className="max-w-md mx-auto">
-                <h3 className="text-2xl font-semibold text-gray-900 mb-3">No restaurants found</h3>
-                <p className="text-gray-600 mb-8">
-                  We couldn't find any restaurants matching your search. Try different keywords or browse our featured restaurants.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setFilteredRestaurants(restaurants);
-                  }}
-                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-red-600 to-orange-500 text-white rounded-lg hover:shadow-lg transition-all duration-200"
-                >
-                  Clear Search
-                </button>
+        {filteredRestaurants.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {filteredRestaurants.map((restaurant, index) => (
+              <div
+                key={restaurant._id}
+                className="opacity-0 animate-fade-in-up"
+                style={{
+                  animationDelay: `${index * 100}ms`,
+                  animationFillMode: 'forwards'
+                }}
+              >
+                <RestaurantCard restaurant={restaurant} />
               </div>
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <Card className="border-0 shadow-xl bg-gradient-to-br from-white to-gray-50">
+            <CardContent className="flex flex-col items-center py-20 px-8">
+              <div className="relative mb-8">
+                <div className="absolute inset-0 bg-gray-200 rounded-full blur-xl opacity-50" />
+                <div className="relative p-8 bg-white rounded-2xl shadow-lg">
+                  <Store className="w-16 h-16 text-gray-400" />
+                </div>
+              </div>
+              <h3 className="text-3xl font-bold text-gray-900 mb-4">No restaurants found</h3>
+              <p className="text-gray-600 text-center text-lg max-w-md mb-8">
+                We couldn't find any restaurants matching your search. Try adjusting your filters or explore our featured restaurants.
+              </p>
+              <Button
+                onClick={clearSearch}
+                className="bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 rounded-xl px-8 py-3 text-white font-semibold shadow-lg"
+              >
+                Show All Restaurants
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Load More */}
+        {filteredRestaurants.length > 6 && (
+          <div className="flex justify-center mt-16">
+            <Button 
+              variant="outline" 
+              className="group rounded-2xl px-8 py-4 text-lg font-semibold border-2 border-gray-200 hover:border-red-300 hover:bg-red-50 transition-all duration-300"
+            >
+              <span>Load More Restaurants</span>
+              <ChevronDown className="w-5 h-5 ml-2 text-gray-400 group-hover:animate-bounce" />
+            </Button>
+          </div>
+        )}
       </div>
+
+      <style jsx>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out;
+        }
+      `}</style>
     </div>
   );
 }

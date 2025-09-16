@@ -80,6 +80,36 @@ router.get("/customer-orders", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/restaurant/:id", async (req, res) => {
+  const { id } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid restaurant ID" });
+  }
+
+  try {
+    const orders = await Order.find({
+      restaurant: id,
+    })
+      .populate("user", "name email phone")
+      .populate("restaurant", "name address")
+      .populate("orderItems.menuItem", "name price")
+      .sort({ createdAt: -1 });
+
+    if (!orders.length) {
+      return res.status(404).json({ message: "No orders found for this restaurant." });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
@@ -105,7 +135,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// get all orders
+
 
 
 
